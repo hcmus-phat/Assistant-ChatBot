@@ -87,7 +87,7 @@ You are OptiBot, the customer-support bot for OptiSigns.com.
 
 ## Daily Job
 
-The project is designed to run as a daily cron job on Railway or Render. The scheduled job re-scrapes at least 30 articles, detects deltas, syncs only new or updated Markdown files, and logs counts for added, updated, skipped, imported, and failed files.
+The project is designed to run as a daily cron job on Railway. The scheduled job re-scrapes at least 30 articles, detects deltas, syncs only new or updated Markdown files, and logs counts for added, updated, skipped, imported, and failed files.
 
 ## Sample Assistant Result
 
