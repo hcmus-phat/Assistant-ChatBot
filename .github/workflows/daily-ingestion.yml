@@ -1,0 +1,66 @@
+name: Daily OptiBot Ingestion
+
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    name: Scrape Zendesk and sync Gemini File Search
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Restore ingestion state
+        uses: actions/cache@v4
+        with:
+          path: |
+            data
+          key: optibot-ingestion-state-${{ github.run_id }}
+          restore-keys: |
+            optibot-ingestion-state-
+
+      - name: Prepare runtime directories
+        run: |
+          mkdir -p data logs
+
+      - name: Build ingestion image
+        run: docker build -t optibot-ingestion:latest .
+
+      - name: Run ingestion
+        run: |
+          docker run --rm \
+            -e GEMINI_API_KEY="${GEMINI_API_KEY}" \
+            -e GEMINI_MODEL="${GEMINI_MODEL}" \
+            -e ZENDESK_SUBDOMAIN="${ZENDESK_SUBDOMAIN}" \
+            -v "${{ github.workspace }}/data:/app/data" \
+            -v "${{ github.workspace }}/logs:/app/logs" \
+            optibot-ingestion:latest
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          ZENDESK_SUBDOMAIN: ${{ secrets.ZENDESK_SUBDOMAIN }}
+
+      - name: Print final counts
+        if: always()
+        run: |
+          if [ -f logs/pipeline.log ]; then
+            grep -E "Scrape summary|Gemini File Search summary|Critical failure" logs/pipeline.log | tee logs/last_run_summary.txt || true
+          fi
+
+      - name: Upload logs and state artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optibot-ingestion-run-${{ github.run_id }}
+          path: |
+            logs/
+            data/hashes.json
+            data/gemini_store.json
+            data/gemini_imported_files.json
+          if-no-files-found: warn
+          retention-days: 30
